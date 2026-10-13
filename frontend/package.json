@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "vite dev"
+    "start": "npx serve -s dist"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
