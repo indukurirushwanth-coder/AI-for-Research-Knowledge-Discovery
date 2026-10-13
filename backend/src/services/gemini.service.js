@@ -495,4 +495,6 @@ Respond strictly in valid JSON matching this schema:
       warning: `Comparison AI error: ${err.message}. Displaying structured document excerpts.`
     };
   }
-}
+}e x p o r t  
+ d e f a u l t  
+ export default
