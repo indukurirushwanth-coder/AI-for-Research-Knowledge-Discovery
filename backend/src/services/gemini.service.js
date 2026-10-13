@@ -1,9 +1,9 @@
-﻿import { GoogleGenAI } from '@google/genai';
+﻿const { GoogleGenAI } = require('@google/genai');
 
 /**
  * Initialize Google GenAI client if API key is present
  */
-export function getGenAIClient() {
+function getGenAIClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '' || apiKey === 'YOUR_GEMINI_API_KEY') {
     return null;
@@ -11,7 +11,10 @@ export function getGenAIClient() {
   return new GoogleGenAI({ apiKey });
 }
 
-export function getModelName() {
+/**
+ * Get model name from environment
+ */
+function getModelName() {
   return process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 }
 
@@ -38,35 +41,9 @@ function cleanJsonOutput(text) {
 }
 
 /**
- * Clean and parse JSON response from Gemini
- */
-function cleanJsonOutput(text) {
-  if (!text) return null;
-  let clean = text.trim();
-  if (clean.startsWith('```json')) {
-    clean = clean.substring(7);
-  } else if (clean.startsWith('```')) {
-    clean = clean.substring(3);
-  }
-  if (clean.endsWith('```')) {
-    clean = clean.substring(0, clean.length - 3);
-  }
-  clean = clean.trim();
-  try {
-    return JSON.parse(clean);
-  } catch (err) {
-    return null;
-  }
-}
-
-/**
- * Clean and parse JSON response from Gemini (duplicate - kept for compatibility)
- */
-
-/**
  * Grounded Question & Answer against retrieved evidence
  */
-export async function answerQuestionWithEvidence(userQuery, passages) {
+async function answerQuestionWithEvidence(userQuery, passages) {
   if (!passages || passages.length === 0) {
     return {
       answer: 'The uploaded papers do not contain sufficient verified passages to answer this inquiry. In accordance with academic rigor, no speculative answers have been fabricated.',
@@ -198,7 +175,7 @@ Respond strictly in this JSON format:
 /**
  * Compare two or more research documents
  */
-export async function compareDocuments(documentsWithChunks) {
+async function compareDocuments(documentsWithChunks) {
   if (!documentsWithChunks || documentsWithChunks.length < 2) {
     throw new Error('At least two documents are required for comparative analysis.');
   }
@@ -297,7 +274,7 @@ Respond strictly in valid JSON matching this schema:
     });
 
     const rawText = response.text || '';
-    const parsed = cleanJsonOutput(responseText);
+    const parsed = cleanJsonOutput(rawText);
 
     if (!parsed) {
       throw new Error('Model failed to output structured comparative JSON.');
@@ -341,7 +318,7 @@ Respond strictly in valid JSON matching this schema:
 /**
  * Knowledge Discovery: Synthesize themes and extract concept graph
  */
-export async function synthesizeKnowledgeGraph(documentsWithChunks) {
+async function synthesizeKnowledgeGraph(documentsWithChunks) {
   const ai = getGenAIClient();
   if (!ai) {
     return {
@@ -357,7 +334,7 @@ export async function synthesizeKnowledgeGraph(documentsWithChunks) {
     return `Doc "${doc.title}":\n${sample}`;
   }).join('\n\n');
 
-  const prompt = `You are ResearchLens AI. Analyze the following research excerpts and extract key scientific concepts and real semantic connections between them.
+  const prompt = `You are ResearchLens AI, performing knowledge discovery and theme synthesis across academic research papers.
 Rules:
 - Concepts (nodes) must be genuine technical or domain concepts mentioned in the text (max 8 nodes).
 - Relationships (edges) must reflect real assertions from the papers (e.g. "improves", "evaluates", "contrasts with", "causes").
@@ -366,7 +343,7 @@ Rules:
 PAPERS:
 ${excerpts}
 
-Respond strictly in valid JSON format:
+Respond in valid JSON format:
 {
   "executiveSynthesis": "Comprehensive synthesis of the current body of knowledge represented in the papers.",
   "recurringThemes": [
@@ -393,35 +370,28 @@ Respond strictly in valid JSON format:
   "hypotheses": "AI-suggested hypothesis for knowledge discovery"
 }`;
 
-  let response;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: getModelName(),
-      contents: prompt,
-      config: {
-        temperature: 0.2
-      }
-    });
-
-    const rawText = response.text || '';
-    const parsed = cleanJsonOutput(responseText);
-
-    if (!parsed) {
-      throw new Error('Failed to parse knowledge graph JSON.');
+  let response = await ai.models.generateContent({
+    model: getModelName(),
+    contents: prompt,
+    config: {
+      temperature: 0.2
     }
+  });
 
-    return {
-      ...parsed,
-      modelUsed: getModelName()
-    };
-  } catch (err) {
-    console.error('Gemini synthesizeKnowledgeGraph error:', err);
-    throw new Error(`Knowledge discovery failed: ${err.message}`);
+  const rawText = response.text || '';
+  const parsed = cleanJsonOutput(rawText);
+
+  if (!parsed) {
+    throw new Error('Failed to parse knowledge graph JSON.');
   }
+
+  return {
+    ...parsed,
+    modelUsed: getModelName()
+  };
 }
 
-export default {
+module.exports = {
   getGenAIClient,
   getModelName,
   answerQuestionWithEvidence,
