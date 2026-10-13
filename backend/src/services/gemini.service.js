@@ -1,4 +1,4 @@
-﻿const { GoogleGenAI } = require('@google/genai');
+﻿import { GoogleGenAI } from '@google/genai';
 
 /**
  * Initialize Google GenAI client if API key is present
@@ -180,7 +180,7 @@ async function answerQuestionWithEvidence(userQuery, passages) {
 /**
  * Compare two or more research documents
  */
-function compareDocuments(documentsWithChunks) {
+async function compareDocuments(documentsWithChunks) {
   if (!documentsWithChunks || documentsWithChunks.length < 2) {
     throw new Error('At least two documents are required for comparative analysis.');
   }
@@ -193,11 +193,11 @@ function compareDocuments(documentsWithChunks) {
       matrix.push({
         documentId: documentsWithChunks[i].id,
         documentTitle: documentsWithChunks[i].title,
-        objective: (documentsWithChunks[i].chunks[0]?.chunk_text || '').substring(0, 180) + '...',
-        methodology: (documentsWithChunks.length > 1 ? documentsWithChunks[1]?.chunk_text : 'See document text').substring(0, 180),
-        keyFindings: (documentsWithChunks.length > 2 ? documentsWithChunks[2]?.chunk_text : documentsWithChunks[0]?.chunk_text || '').substring(0, 180),
+        objective: (documentsWithChunks[i].chunks[0] ? documentsWithChunks[i].chunks[0].chunk_text : '').substring(0, 180) + '...',
+        methodology: (documentsWithChunks.length > 1 ? documentsWithChunks[1] ? documentsWithChunks[1].chunk_text : 'See document text' : 'See document text').substring(0, 180),
+        keyFindings: (documentsWithChunks.length > 2 ? documentsWithChunks[2] ? documentsWithChunks[2].chunk_text : (documentsWithChunks.length > 0 ? documentsWithChunks[0] ? documentsWithChunks[0].chunk_text : '' : '') : '').substring(0, 180),
         limitations: 'Not found in provided text',
-        conclusions: (documentsWithChunks.length > 0 ? documentsWithChunks[documentsWithChunks.length - 1]?.chunk_text || '').substring(0, 180)
+        conclusions: (documentsWithChunks.length > 0 ? documentsWithChunks[documentsWithChunks.length - 1] ? documentsWithChunks[documentsWithChunks.length - 1].chunk_text : '' : '').substring(0, 180)
       });
     }
     return {
@@ -233,12 +233,12 @@ function compareDocuments(documentsWithChunks) {
   }
   var textSample = summaryParts.join('\\n\\n');
 
-  // Build comparison prompt using array
+  // Build comparison prompt using array - avoid problematic escape sequences
   var comparisonPromptLines = [];
   comparisonPromptLines.push('You are ResearchLens AI, performing a comparative analysis of academic research papers.');
   comparisonPromptLines.push('Strict Rules:');
   comparisonPromptLines.push('- Only cite information found in the provided excerpts.');
-  comparisonPromptLines.push('- If an attribute (objective, methodology, findings, limitations, or conclusions) is not mentioned in a paper\'s excerpt, write \"Not found in provided text\".');
+  comparisonPromptLines.push('- If an attribute (objective, methodology, findings, limitations, or conclusions) is not mentioned in a paper\'s excerpt, write Not found in provided text.');
   comparisonPromptLines.push('- Identify clear agreements (convergences) and disagreements (conflicts/divergences).');
   comparisonPromptLines.push('- Identify missing evidence and suggest future research questions (label these as AI-generated suggestions).');
   comparisonPromptLines.push('PAPERS TO COMPARE:');
@@ -249,11 +249,11 @@ function compareDocuments(documentsWithChunks) {
   comparisonPromptLines.push('    {');
   comparisonPromptLines.push('      "documentId": "id"');
   comparisonPromptLines.push('      , "documentTitle": "Title"');
-  comparisonPromptLines.push('      , "objective": "Main objective or \\'Not found in provided text\\'"');
-  comparisonPromptLines.push('      , "methodology": "Methodology or \\'Not found in provided text\\'"');
-  comparisonPromptLines.push('      , "keyFindings": "Key empirical findings or \\'Not found in provided text\\'"');
-  comparisonPromptLines.push('      , "limitations": "Self-reported or observed limitations or \\'Not found in provided text\\'"');
-  comparisonPromptLines.push('      , "conclusions": "Conclusions or \\'Not found in provided text\\'"');
+  comparisonPromptLines.push('      , "objective": "Main objective or Not found in provided text"');
+  comparisonPromptLines.push('      , "methodology": "Methodology or Not found in provided text"');
+  comparisonPromptLines.push('      , "keyFindings": "Key empirical findings or Not found in provided text"');
+  comparisonPromptLines.push('      , "limitations": "Self-reported or observed limitations or Not found in provided text"');
+  comparisonPromptLines.push('      , "conclusions": "Conclusions or Not found in provided text"');
   comparisonPromptLines.push('    }');
   comparisonPromptLines.push('  ]');
   comparisonPromptLines.push('  "agreements": [');
@@ -300,7 +300,7 @@ function compareDocuments(documentsWithChunks) {
 /**
  * Knowledge Discovery: Synthesize themes and extract concept graph
  */
-function synthesizeKnowledgeGraph(documentsWithChunks) {
+async function synthesizeKnowledgeGraph(documentsWithChunks) {
   const ai = getGenAIClient();
   if (!ai) {
     return {
@@ -322,13 +322,13 @@ function synthesizeKnowledgeGraph(documentsWithChunks) {
   }
   var textSample = docSummaryParts.join('\\n\\n');
 
-  // Build prompt using array
+  // Build prompt using array - avoid problematic escape sequences
   var promptLines = [];
   promptLines.push('You are ResearchLens AI, performing knowledge discovery and theme synthesis across academic research papers.');
   promptLines.push('Rules:');
   promptLines.push('- Concepts (nodes) must be genuine technical or domain concepts mentioned in the text (max 8 nodes).');
-  promptLines.push('- Relationships (edges) must reflect real assertions from the papers (e.g. \"improves\", \"evaluates\", \"contrasts with\", \"causes\").');
-  promptLines.push('- Hypotheses must be labeled as \"AI-generated suggestions\".');
+  promptLines.push('- Relationships (edges) must reflect real assertions from the papers (e.g. improves, evaluates, contrasts with, causes).');
+  promptLines.push('- Hypotheses must be labeled as AI-generated suggestions.');
   promptLines.push('PAPERS:');
   promptLines.push(textSample);
   promptLines.push('Respond in valid JSON format:');
@@ -380,10 +380,5 @@ function synthesizeKnowledgeGraph(documentsWithChunks) {
   };
 }
 
-module.exports = {
-  getGenAIClient: getGenAIClient,
-  getModelName: getModelName,
-  answerQuestionWithEvidence: answerQuestionWithEvidence,
-  compareDocuments: compareDocuments,
-  synthesizeKnowledgeGraph: synthesizeKnowledgeGraph
-};
+/** Export functions for ES modules */
+export { getGenAIClient, getModelName, answerQuestionWithEvidence, compareDocuments, synthesizeKnowledgeGraph, cleanJsonOutput };
